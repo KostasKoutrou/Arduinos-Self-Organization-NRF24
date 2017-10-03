@@ -1,4 +1,5 @@
-//4th update, adding "transit" packets functions.
+/* Communication between nodes. */
+
 
 #include <SPI.h>
 #include <RF24.h>
