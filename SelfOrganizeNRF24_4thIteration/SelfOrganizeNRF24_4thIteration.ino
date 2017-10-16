@@ -52,6 +52,25 @@ int sendPacket(struct packetType sPacket){
     delay(10);
     radio.closeReadingPipe(0);
     radio.startListening();
+    //handle write fails, suppose that if write failed => node left without saying it
+    while(a==0){
+      //immitate node with ad=sendtoad leaving
+      //just send to next node for first iteration
+      Serial.print(sendtoad[0]);
+      Serial.println(" node failed. Sending to next, if it exists.");
+      if(sendtoad[0]!=NWcounter && sendtoad[0]!=1){//if there is next node, send it, else do nothing.
+        sendtoad[0] = sendtoad[0] + sendtoad[0] - selfad[0];
+        radio.stopListening();
+        radio.openWritingPipe(sendtoad);
+        a = radio.write(&sPacket, sizeof(sPacket));
+        a = radio.write(&sPacket, sizeof(sPacket));
+        //radio.printDetails();
+        delay(10);
+        radio.closeReadingPipe(0);
+        radio.startListening();
+      }
+      else a=-1;
+    }
   }
   else a = -1;//if reached destination, a=-1
   return a;
@@ -244,6 +263,7 @@ void loop() {//in the network
         }
         else if(serialRead == 'T'){//case send "transit"
           Serial.println("MAKING TRANSIT PACKET");
+          packet.senderNode[0] = selfad[0];
           strcpy(packet.type, "transit");
           Serial.print("Selfad = ");
           Serial.println(selfad[0]);
