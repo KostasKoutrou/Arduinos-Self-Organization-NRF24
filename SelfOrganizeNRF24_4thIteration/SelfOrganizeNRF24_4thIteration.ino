@@ -57,6 +57,7 @@ int sendPacket(struct packetType sPacket){
 
   //send packet to sendtoad
   if(sendtoad[0] != 0xFF){
+<<<<<<< HEAD
     a = writePipe(sPacket, sendtoad);
     //handle write fails, suppose that if write failed => node left without saying it
     while(a==0){
@@ -70,6 +71,16 @@ int sendPacket(struct packetType sPacket){
       }
       else a=-1;
     }
+=======
+    radio.stopListening();
+    radio.openWritingPipe(sendtoad);
+    a = radio.write(&sPacket, sizeof(sPacket));
+    a = radio.write(&sPacket, sizeof(sPacket));
+    //radio.printDetails();
+    delay(10);
+    radio.closeReadingPipe(0);
+    radio.startListening();
+>>>>>>> parent of da19250... While write fails, try writing at next node
   }
   else a = -1;//if reached destination, a=-1
   return a;
@@ -262,7 +273,6 @@ void loop() {//in the network
         }
         else if(serialRead == 'T'){//case send "transit"
           Serial.println("MAKING TRANSIT PACKET");
-          packet.senderNode[0] = selfad[0];
           strcpy(packet.type, "transit");
           Serial.print("Selfad = ");
           Serial.println(selfad[0]);
