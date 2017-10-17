@@ -35,6 +35,19 @@ struct packetType broadPacket = {"invite", 0x01, 0x0F, 0x0F, 0x0F, 0x0F, 0x01, 0
 
 //FUNCTIONS
 //-------------------
+int writePipe(struct packetType sPacket, uint8_t sendtoad[5]){
+  int a;
+  radio.stopListening();
+  radio.openWritingPipe(sendtoad);
+  a = radio.write(&sPacket, sizeof(sPacket));
+  a = radio.write(&sPacket, sizeof(sPacket));
+  //radio.printDetails();
+  delay(10);
+  radio.closeReadingPipe(0);
+  radio.startListening();
+  return a;
+}
+//-------------------
 //Used to send packet
 int sendPacket(struct packetType sPacket){
   int a;
@@ -44,14 +57,7 @@ int sendPacket(struct packetType sPacket){
 
   //send packet to sendtoad
   if(sendtoad[0] != 0xFF){
-    radio.stopListening();
-    radio.openWritingPipe(sendtoad);
-    a = radio.write(&sPacket, sizeof(sPacket));
-    a = radio.write(&sPacket, sizeof(sPacket));
-    //radio.printDetails();
-    delay(10);
-    radio.closeReadingPipe(0);
-    radio.startListening();
+    a = writePipe(sPacket, sendtoad);
     //handle write fails, suppose that if write failed => node left without saying it
     while(a==0){
       //immitate node with ad=sendtoad leaving
@@ -60,14 +66,7 @@ int sendPacket(struct packetType sPacket){
       Serial.println(" node failed. Sending to next, if it exists.");
       if(sendtoad[0]!=NWcounter && sendtoad[0]!=1){//if there is next node, send it, else do nothing.
         sendtoad[0] = sendtoad[0] + sendtoad[0] - selfad[0];
-        radio.stopListening();
-        radio.openWritingPipe(sendtoad);
-        a = radio.write(&sPacket, sizeof(sPacket));
-        a = radio.write(&sPacket, sizeof(sPacket));
-        //radio.printDetails();
-        delay(10);
-        radio.closeReadingPipe(0);
-        radio.startListening();
+        a = writePipe(sPacket, sendtoad);
       }
       else a=-1;
     }
