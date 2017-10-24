@@ -48,7 +48,7 @@ int sendPacket(struct packetType sPacket){
     a = radio.write(&sPacket, sizeof(sPacket));
     a = radio.write(&sPacket, sizeof(sPacket));
     //radio.printDetails();
-    delay(10);
+    delay(5);
     radio.closeReadingPipe(0);
     radio.startListening();
   }
@@ -57,9 +57,9 @@ int sendPacket(struct packetType sPacket){
     Serial.print(sendtoad[0]);
     Serial.println(" failed");
     if(sendtoad[0] > selfad[0]){//if it was to be sent to the right
+      int oldNWcounter = NWcounter; //keep NWcounter to know how many consecutive nodes left
       //temporarily change selfad
       selfad[0]++;
-      sendPacket(sPacket);
       //make leave packet
       struct packetType leavepacket = {"leave", 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x0F,
       0x0F, 0x0F, 0x0F, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -70,7 +70,12 @@ int sendPacket(struct packetType sPacket){
       //go back to original selfad, to update left nodes
       selfad[0]--;
       NWcounter--;
-      updateNodes(0x01);
+      //only update nodes if sent message isn't leave, otherwise it's
+      //consecutive leaves, and the last one will handle it all.
+      if(strcmp(sPacket.type , "leave") != 0) updateNodes(0x01);
+      //match destination with new receiver address.
+      sPacket.receiverNode[0] = sPacket.receiverNode[0] - (oldNWcounter-NWcounter);
+      a = sendPacket(sPacket);
     }
     else if(sendtoad[0] < selfad[0]){//if it was to be sent to the left
       //make leave packet
@@ -85,8 +90,14 @@ int sendPacket(struct packetType sPacket){
       radio.openReadingPipe(1,selfad);
       radio.startListening();
       NWcounter--;
-      sendPacket(sPacket);
       updateNodes(0x01);
+      sPacket.senderNode[0]--;//match destination with new receiver address.
+      //if, after the network is fixed, the receiver node is higher than the
+      //NWcounter, then set it to NWcounter.
+      if(sPacket.receiverNode[0] > NWcounter) sPacket.receiverNode[0] = NWcounter;
+      //if about to be sent packet is update packet, don't send it,
+      //because above updateNodes gave the most recent and correct info.
+      if(strcmp(sPacket.type , "update") != 0) a = sendPacket(sPacket);
     }
   }
   return a;
