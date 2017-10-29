@@ -42,7 +42,7 @@ struct packetType broadPacket = {"invite", 0x01, 0x0F, 0x0F, 0x0F, 0x0F, 0x01, 0
 //-------------------
 //Used to send packet
 int sendPacket(struct packetType sPacket){
-  printPacket(sPacket);//print packet for checking
+  //printPacket(sPacket);//print packet for checking
   int a;
   //check where to send the packet
   if(sPacket.receiverNode[0] > selfad[0]) sendtoad[0] = selfad[0] + 1;
