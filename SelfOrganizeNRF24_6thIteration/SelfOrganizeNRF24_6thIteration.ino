@@ -8,11 +8,13 @@
 //Type for packets to be sent and received
 struct packetType{
   char type[8];
+  //addresses at nRF24L01 have 40bits, so we make a vector of 5 8-bit indexes
   uint8_t senderNode[5];
   uint8_t receiverNode[5];
+  //data is made to be a 8-index vector, just for testing purposes
   int dataSize;
   int data[8];
-  int dataSizeEnd;
+  int dataSizeEnd;  //dataSizeEnd = dataSize
 };
 
 
@@ -20,17 +22,26 @@ struct packetType{
 RF24 radio(7,8);
 
 
+//Global variables used
+
+//Addresses:
 //40bits addresses, only the first 8 bits really matter, so the [0] of the vectors.
 //the rest is balanced 0s and 1s for sending to be successful.
 uint8_t selfad[5] = {0x01, 0x0F, 0x0F, 0x0F, 0x0F};//self address
 uint8_t broadcastad[5] = {0xFE, 0x0F, 0x0F, 0x0F, 0x0F};//address for broadcasts
 uint8_t sendtoad[5] = {0xFF, 0x0F, 0x0F, 0x0F, 0x0F};//address for where to send the packet
+
+
 int inNW = 0;//if it's =1, then the node is in the network.
 char serialRead;//used to keep the value from reading from the serial (keyboard).
 int NWcounter = 0; //how many nodes there are
 int printtemp = 0, printtemp1 = 0; //used so only printed once
 unsigned long int lastRefreshedTime = 0; //used for time intervals for broadcasting invites
 //general packet used to store and process received packets.
+
+
+//Packets used:
+//this is where the received packets will be stored
 struct packetType packet = {"0000000", 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x0F,
 0x0F, 0x0F, 0x0F, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //packet used to send invitations at broadcastad address.
@@ -43,7 +54,8 @@ struct packetType broadPacket = {"invite", 0x01, 0x0F, 0x0F, 0x0F, 0x0F, 0x01, 0
 //Used to send packet
 int sendPacket(struct packetType sPacket){
   //printPacket(sPacket);//print packet for checking
-  int a;
+  int a;//this is the value to be returned
+  
   //check where to send the packet
   if(sPacket.receiverNode[0] > selfad[0]) sendtoad[0] = selfad[0] + 1;
   else if(sPacket.receiverNode[0] < selfad[0]) sendtoad[0] = selfad[0] - 1;
@@ -61,10 +73,15 @@ int sendPacket(struct packetType sPacket){
     radio.startListening();
   }
   else a = -1;//if reached destination, a=-1
+
+
   if(a==0){//if write failed, assume sendtoad node left
     Serial.print(sendtoad[0]);
     Serial.println(" failed");
-    if(sendtoad[0] > selfad[0]){//if it was to be sent to the right
+
+
+    //if it was to be sent to the right
+    if(sendtoad[0] > selfad[0]){
       int oldNWcounter = NWcounter; //keep NWcounter to know how many consecutive nodes left
       //temporarily change selfad
       selfad[0]++;
@@ -85,7 +102,10 @@ int sendPacket(struct packetType sPacket){
       sPacket.receiverNode[0] = sPacket.receiverNode[0] - (oldNWcounter-NWcounter);
       a = sendPacket(sPacket);
     }
-    else if(sendtoad[0] < selfad[0]){//if it was to be sent to the left
+
+
+    //if it was to be sent to the left
+    else if(sendtoad[0] < selfad[0]){
       //make leave packet and send it.
       struct packetType leavepacket = {"leave", 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x0F,
       0x0F, 0x0F, 0x0F, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -112,20 +132,25 @@ int sendPacket(struct packetType sPacket){
   return a;
 }
 //-------------------------------
+
+
 //Used to inform every node from the node who sends it
 //to the node with address recNode about the new NWcounter.
 int updateNodes(uint8_t recNode){
-  //1st make update packet
+  //make update packet
   struct packetType updatePacket = {"update", 0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x01, 0x0F,
   0x0F, 0x0F, 0x0F, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1};
   updatePacket.senderNode[0] = selfad[0];
   updatePacket.receiverNode[0] = recNode;
   updatePacket.data[0] = NWcounter;
   printPacket(updatePacket);
+  //send it to recNode
   int a = sendPacket(updatePacket);
   return a;
 }
 //------------------------------
+
+
 //Used to print packet's content.
 void printPacket(struct packetType pPacket){
   Serial.println("PRINT PACKET:");
@@ -147,27 +172,38 @@ void printPacket(struct packetType pPacket){
 //-----------------------------
 
 
+
+//Main program starts here.
 void setup() {
+  //Begin serial connection through USB
   Serial.begin(9600);
   printf_begin();
 
   Serial.println("Type a letter to begin:");
-  while(!Serial.available());//wait for command (just a random key from the keyboard) to start
+  //wait for command (just a random key from the keyboard) to start
+  while(!Serial.available());
   Serial.read();
   Serial.println("Turned ON. Listening for invitations for 5 sec...");
   radio.begin();
-  radio.setPALevel(RF24_PA_LOW);//set power to low, since we are testing we don't need any higher that tires the transceiver.
+  //set power to low, since we are testing
+  //we don't need any higher that tires the transceiver.
+  radio.setPALevel(RF24_PA_LOW);
   //start listening for broadcasts
   radio.openReadingPipe(1, broadcastad);
   radio.startListening();
   unsigned long int miltimer = millis();
+
+  
   while(millis()-miltimer<5000 && inNW==0){//listen for 5 seconds for broadcasts.
     if(radio.available()){
       delay(5);
       Serial.println("Heard broadcast. Trying to join...");
       radio.read(&packet, sizeof(packet));
       radio.read(&packet, sizeof(packet));
-      if(strcmp(packet.type, "invite")==0)//has to be type "invite" to be an actual invitation.
+
+      //If it's an actual invitation packet, do all the procedures needed.
+      //Has to be type "invite" to be an actual invitation.
+      if(strcmp(packet.type, "invite")==0)
       {
         Serial.print("Sender node = ");
         Serial.println(packet.senderNode[0]);
@@ -188,9 +224,14 @@ void setup() {
         lastRefreshedTime = millis();
         inNW = 1;
       }
+      
     }
   }
-  if(inNW==0){//1st node if didn't hear invitation for 5 seconds.
+
+  //If reached this line with inNW==0,
+  //it means they didn't receive anything and 5 seconds passed
+  //so they assume they are the 1st node in the network.
+  if(inNW==0){
     Serial.println("1st node in NW, initializing...");
     selfad[0] = 0x01;
     radio.stopListening();
@@ -208,9 +249,11 @@ void setup() {
 
 
 
+//When in here, the node is in the network
+void loop() {
 
-void loop() {//when in here, the node is in the network
-  if(millis()-lastRefreshedTime > 3000 && selfad[0] == NWcounter)//if last node, send invitation every 3 sec
+  //If last node, send invitation every 3 sec.
+  if(millis()-lastRefreshedTime > 3000 && selfad[0] == NWcounter)
   {
     //make invite packet
     broadPacket.senderNode[0] = selfad[0];
@@ -229,8 +272,12 @@ void loop() {//when in here, the node is in the network
     radio.startListening();
     lastRefreshedTime = millis();
   }
-  if(packet.dataSize!=0)//have data, process it and forward it, if needed.
+
+
+  //If a packet was just received, process it and forward it, if needed.
+  if(packet.dataSize!=0)
   {
+    
     //case "update" packet
     if(strcmp(packet.type, "update")==0)
     {
@@ -242,6 +289,8 @@ void loop() {//when in here, the node is in the network
       Serial.print("Send success: ");
       Serial.println(a);
     }
+
+    //case "leave" packet
     else if(strcmp(packet.type, "leave")==0)
     {
       sendPacket(packet);
@@ -251,6 +300,8 @@ void loop() {//when in here, the node is in the network
       radio.openReadingPipe(1,selfad);
       radio.startListening();
     }
+
+    //case "transit" packet
     else if(strcmp(packet.type, "transit")==0)
     {
       if(sendPacket(packet) == -1){
@@ -262,22 +313,30 @@ void loop() {//when in here, the node is in the network
         printPacket(packet);
       }
     }
-    packet.dataSize=0;
+    packet.dataSize=0;//Clear data. Just needed to set dataSize=0.
   }
-  else{//don't have data
+
+  //If there is no packet or serial, print that you are waiting.
+  else{
     if(printtemp1==0){
       Serial.print("Waiting: ");
       Serial.println(selfad[0]);
       printtemp1=1;
     }
+
+    //If there is nothing to listen to, try to read from serial.
     if(!radio.available()){
-      if(Serial.available()){//If nothing to hear, try to read from serial
+
+      //If there is something in serial, print NWcounter and self address,
+      //then proccess it if needed
+      if(Serial.available()){
         serialRead = Serial.read();
         printtemp1=0;
         Serial.print("NWcounter = ");
         Serial.println(NWcounter);
         Serial.print("Selfad = ");
         Serial.println(selfad[0]);
+
 
         if(serialRead == 'L'){//case "leave"
           Serial.print("Leaving the network, selfad = ");
@@ -298,6 +357,8 @@ void loop() {//when in here, the node is in the network
           radio.powerDown();
           while(1);//stay here forever
         }
+
+        
         else if(serialRead == 'T'){//case send "transit"
           //read packet data, make it and send it.
           Serial.println("MAKING TRANSIT PACKET");
@@ -327,12 +388,16 @@ void loop() {//when in here, the node is in the network
           sendPacket(packet);
           packet.dataSize = 0;
         }
+
+        
         else if(serialRead == 'P'){//case "print details"
           radio.printDetails();
         }
       }
     }
-    else{//heard something from the selfad pipe
+
+    //If heard something from the selfad pipe
+    else{
       delay(5);
       printtemp1=0;
       Serial.println("Heard something");
@@ -342,24 +407,3 @@ void loop() {//when in here, the node is in the network
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
